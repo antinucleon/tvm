@@ -303,8 +303,11 @@ class TaskScheduler:
             for idx, task in enumerate(self.tasks):
                 print("Generate Buffer for Task[%2d]" % idx)
                 null_sch, args = task.compute_dag.apply_steps_from_state(task.compute_dag.get_init_state())
+                # cpu_func = build_module.build(
+                #     null_sch, args, target=task.target_host, target_host=task.target_host
+                # )
                 cpu_func = build_module.build(
-                    null_sch, args, target=task.target_host, target_host=task.target_host
+                    null_sch, args, target="llvm", target_host="llvm"
                 )
                 #cpu_args = [ndarray.empty(get_const_tuple(x.shape), x.dtype, tvm.cpu()) for x in args]
                 random_fill = tvm.get_global_func("tvm.contrib.random.random_fill", True)
@@ -320,7 +323,6 @@ class TaskScheduler:
                     #print(answer[i])
                     #input("press")
         print(os.listdir(tune_option.working_dir))
-        input()
         self.ct = self.best_ct = 0
         self.tic = time.time()
 

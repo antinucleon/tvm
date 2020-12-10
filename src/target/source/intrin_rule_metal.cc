@@ -68,26 +68,6 @@ TVM_REGISTER_GLOBAL("tvm.intrin.rule.metal.cos").set_body(DispatchPureExtern<Dir
 
 TVM_REGISTER_GLOBAL("tvm.intrin.rule.metal.cosh").set_body(DispatchPureExtern<Direct>);
 
-TVM_REGISTER_GLOBAL("tvm.intrin.rule.metal.erf").set_body([](const TVMArgs& args, TVMRetValue* rv) {
-      PrimExpr e = args[0];
-      const CallNode* call = e.as<CallNode>();
-      ICHECK(call != nullptr);
-      // A&S formula 7.1.26
-      auto dtype = e.dtype();
-      auto a1 = tir::make_const(dtype, 0.254829592);
-      auto a2 = tir::make_const(dtype, -0.284496736);
-      auto a3 = tir::make_const(dtype, 1.421413741);
-      auto a4 = tir::make_const(dtype, -1.453152027);
-      auto a5 = tir::make_const(dtype, 1.061405429);
-      auto p = tir::make_const(dtype, 0.3275911);
-      auto one = tir::make_const(dtype, 1);
-      auto x = abs(e);
-      auto t = one / (one + p * x);
-      auto y = one - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) *
-                   t * tvm::exp(-x * x);
-
-      *rv = Select(e >=0, y, -y);
-    });
 
 }  // namespace intrin
 }  // namespace codegen
