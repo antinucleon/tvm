@@ -25,6 +25,7 @@ import signal
 import threading
 import traceback
 import os
+import re
 
 import numpy as np
 
@@ -308,3 +309,4 @@ def to_str_round(x, decimal=6):
         format_str = "%%.%df" % decimal
         return format_str % x
     raise ValueError("Invalid value: " + str(x) + "\ttype: " + str(type(x)))
+

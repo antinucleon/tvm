@@ -570,7 +570,8 @@ class MeasureErrorNo(object):
 
 def _timed_func(inp_serialized, build_func, verbose):
     tic = time.time()
-    inp = MeasureInput.deserialize(inp_serialized)
+    #inp = MeasureInput.deserialize(inp_serialized)
+    inp = inp_serialized
     task = inp.task
 
     error_no = MeasureErrorNo.NO_ERROR
@@ -634,7 +635,8 @@ def local_build_worker(args):
     else:
         raise ValueError("Invalid build_func" + build_func)
 
-    res = call_func_with_timeout(timeout, _timed_func, args=(inp, build_func, verbose))
+    #res = call_func_with_timeout(timeout, _timed_func, args=(inp, build_func, verbose))
+    res = _timed_func(inp, build_func, verbose)
     if isinstance(res, TimeoutError):
         if verbose >= 1:
             print(".T", end="")  # Build timeout
@@ -674,7 +676,8 @@ def local_builder_build(inputs, timeout, n_parallel, build_func="default", verbo
     # This pool is not doing computationally intensive work, so we can use threads
     if n_parallel == 1:
         tuple_res = [
-            local_build_worker([i.serialize(), build_func, timeout, verbose]) for i in inputs
+            local_build_worker([i, build_func, timeout, verbose]) for i in inputs
+            #local_build_worker([i.serialize(), build_func, timeout, verbose]) for i in inputs
         ]
     else:
         pool = multiprocessing.pool.ThreadPool(n_parallel)
@@ -956,14 +959,14 @@ def _timed_rpc_run(
     if error_no == 0:
         try:
             if os.path.exists(working_dir):
-                buffer_path = os.path.join(working_dir, "buffer.pkl")
+                buffer_path = os.path.join(working_dir, "%s.pkl" % inp.task.workload_key)
                 if os.path.exists(buffer_path):
                     with open(buffer_path, "rb") as finput:
                         buffer = pickle.load(finput)
                     # force last args to be empty
                     args = []
                     for i in range(len(build_res.args) - 1):
-                        args.append(ndarray.array(buffer[build_res.args[i].name], ctx=ctx))
+                        args.append(ndarray.array(buffer[i], ctx=ctx))
                     args.append(
                         ndarray.empty(
                             get_const_tuple(build_res.args[-1].shape), build_res.args[-1].dtype, ctx
@@ -995,7 +998,7 @@ def _timed_rpc_run(
                 result = args[-1].asnumpy()
                 try:
                     np.testing.assert_allclose(
-                        result, buffer[build_res.args[-1].name], atol=1e-4, rtol=1e-4
+                        result, buffer[-1], atol=1e-4, rtol=1e-4
                     )
                 # pylint: disable=broad-except
                 except Exception:

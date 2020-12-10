@@ -20,12 +20,13 @@
 import json
 import os
 import shutil
+import pickle
 from tempfile import mkdtemp
 from collections import OrderedDict
 
 import tvm._ffi
-from tvm.runtime import Object
-
+from tvm.runtime import Object, ndarray
+from tvm.driver import build_module
 from tvm.driver.build_module import build
 from tvm.target import Target
 from .measure import LocalBuilder, LocalRunner, RPCRunner
@@ -35,6 +36,7 @@ from .compute_dag import ComputeDAG, LayoutRewriteOption
 from .cost_model import XGBModel
 from .search_policy import SketchPolicy
 from .workload_registry import register_workload_tensors
+from .utils import get_const_tuple
 from . import _ffi_api
 
 
@@ -183,7 +185,7 @@ class TuningOptions(Object):
             measure_callbacks,
         )
 
-    def register_buffer(self, name, buffer):
+    def register_buffer(self, workload_key, name, buffer):
         """Register numpy buffer for a given tensor argument name for running
 
         Parameters
@@ -193,12 +195,12 @@ class TuningOptions(Object):
         buffer : numpy.ndarray
             data for the tensor argument
         """
-        buffer_path = os.path.join(self.temp_working_dir, "buffer.pkl")
-        buf = OrderedDict()
+        buffer_path = os.path.join(self.temp_working_dir, "%s.pkl" % workload_key)
+        buf = []
         if os.path.exists(buffer_path):
             with open(buffer_path, "rb") as finput:
                 buf = pickle.load(finput)
-        buf[name] = buffer
+        buf.append(buffer)
         with open(buffer_path, "wb") as foutput:
             pickle.dump(buf, foutput)
 
@@ -291,6 +293,41 @@ class SearchTask(Object):
         if search_policy is None:
             cost_model = XGBModel()
             search_policy = SketchPolicy(self, cost_model)
+        
+        if tuning_options.check_correctness:
+            null_sch, args = self.dag.apply_steps_from_state(self.dag.get_init_state())
+            cpu_func = build_module.build(
+                null_sch, args, target=self.target_host, target_host=self.target_host
+            )
+            buffer_path = os.path.join(tuning_options.working_dir, "buffer.pkl")
+            if os.path.exists(buffer_path) is True:
+                with open(buffer_path, "rb") as finput:
+                    buffer = pickle.load(finput)
+                if len(buffer) == len(args):
+                    # we skip check each arg shape here
+                    pass
+                elif len(buffer) == len(args) - 1:
+                    # assume only one output
+                    # TODO(xxx): get the output information from
+                    # `task.compute_dag` to support multiple output
+                    cpu_args = [v for _, v in buffer.items()] + [
+                        ndarray.empty(args[-1].shape, dtype=args[-1].dtype, ctx=tvm.cpu())
+                    ]
+                    cpu_func(*cpu_args)
+                    ### save cpu result
+                    answer = [x.asnumpy() for x in cpu_args]
+                    tuning_options.register_buffer(args[-1].name, answer[-1])
+            else:
+                cpu_args = [ndarray.empty(get_const_tuple(x.shape), x.dtype, tvm.cpu()) for x in args]
+                random_fill = tvm.get_global_func("tvm.contrib.random.random_fill", True)
+                assert random_fill, "Please make sure USE_RANDOM is ON in the config.cmake"
+                for arg in cpu_args:
+                    random_fill(arg)
+                cpu_func(*cpu_args)
+                answer = [arg.asnumpy() for arg in cpu_args]
+                # pylint: disable=C0200
+                for i in range(len(answer)):
+                    tuning_options.register_buffer(args[i].name, answer[i])
 
         _ffi_api.AutoSchedule(search_policy, tuning_options)
 

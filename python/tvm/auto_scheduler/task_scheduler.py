@@ -29,12 +29,17 @@ import logging
 
 import numpy as np
 
+import tvm
+from tvm.runtime import ndarray
+from tvm.driver import build_module
+
 from .search_policy import SearchPolicy, SketchPolicy, PreloadMeasuredStates
 from .cost_model import RandomModel, XGBModel
-from .utils import array_mean
+from .utils import array_mean, get_const_tuple
 from .measure import ProgramMeasurer
 from .measure_record import RecordReader
 from . import _ffi_api
+
 
 logger = logging.getLogger("auto_scheduler")
 
@@ -292,6 +297,30 @@ class TaskScheduler:
             tune_option.measure_callbacks,
             tune_option.verbose,
         )
+
+        print(tune_option.working_dir)
+        if self.tune_option.check_correctness:
+            for idx, task in enumerate(self.tasks):
+                print("Generate Buffer for Task[%2d]" % idx)
+                null_sch, args = task.compute_dag.apply_steps_from_state(task.compute_dag.get_init_state())
+                cpu_func = build_module.build(
+                    null_sch, args, target=task.target_host, target_host=task.target_host
+                )
+                #cpu_args = [ndarray.empty(get_const_tuple(x.shape), x.dtype, tvm.cpu()) for x in args]
+                random_fill = tvm.get_global_func("tvm.contrib.random.random_fill", True)
+                assert random_fill, "Please make sure USE_RANDOM is ON in the config.cmake"
+                #for arg in cpu_args:
+                #    random_fill(arg)
+                cpu_args = [ndarray.array(np.random.uniform(-1, 1, get_const_tuple(x.shape)).astype(x.dtype), tvm.cpu()) for x in args]
+                cpu_func(*cpu_args)
+                answer = [arg.asnumpy() for arg in cpu_args]
+                # pylint: disable=C0200
+                for i in range(len(answer)):
+                    tune_option.register_buffer(task.workload_key, args[i].name, answer[i])
+                    #print(answer[i])
+                    #input("press")
+        print(os.listdir(tune_option.working_dir))
+        input()
         self.ct = self.best_ct = 0
         self.tic = time.time()
 
