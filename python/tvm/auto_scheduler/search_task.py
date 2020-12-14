@@ -327,7 +327,7 @@ class SearchTask(Object):
                 answer = [arg.asnumpy() for arg in cpu_args]
                 # pylint: disable=C0200
                 for i in range(len(answer)):
-                    tuning_options.register_buffer(args[i].name, answer[i])
+                    tuning_options.register_buffer(self.workload_key, args[i].name, answer[i])
 
         _ffi_api.AutoSchedule(search_policy, tuning_options)
 
