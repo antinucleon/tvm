@@ -36,6 +36,51 @@
 namespace tvm {
 namespace relay {
 
+template<typename AttrType>
+bool GemmRel(const Array<Type>& types, int num_inputs, const Attrs& attrs, const TypeReporter& reporter) {
+  ICHECK_EQ(types.size(), 3);
+  const auto* data = types[0].as<TensorTypeNode>();
+  const auto* weight = types[1].as<TensorTypeNode>();
+  if (data == nullptr) return false;
+
+  const AttrType* param = attrs.as<AttrType>();
+  ICHECK(param != nullptr);
+  ICHECK(static_cast<int>(data->shape.size()) != 0);
+  Array<tvm::PrimExpr> dshape = data->shape;
+  Array<tvm::PrimExpr> wshape = weight->shape;
+  Array<tvm::PrimExpr> oshape = dshape;
+  std::string flag(param->trans_flag.c_str());
+  if (flag == "NN") {
+    IndexExpr M = dshape[0];
+    IndexExpr K = dshape[1];
+    IndexExpr N = wshape[1];
+    oshape.Set(0, M);
+    oshape.Set(1, N);
+  } else if (flag == "NT") {
+    IndexExpr M = dshape[0];
+    IndexExpr K = dshape[1];
+    IndexExpr N = wshape[0];
+    oshape.Set(0, M);
+    oshape.Set(1, N);
+  } else if (flag == "TN") {
+    IndexExpr M = dshape[1];
+    IndexExpr K = dshape[0];
+    IndexExpr N = wshape[1];
+    oshape.Set(0, M);
+    oshape.Set(1, N);
+  } else if (flag == "TT") {
+    IndexExpr M = dshape[1];
+    IndexExpr K = dshape[0];
+    IndexExpr N = wshape[0];
+    oshape.Set(0, M);
+    oshape.Set(1, N);
+  } else {
+    LOG(FATAL) << "Flag Not Supported.";
+  }
+  reporter->Assign(types[2], TensorType(oshape, data->dtype));
+  return true;
+}
+
 template <typename AttrType>
 bool DenseRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
               const TypeReporter& reporter) {
@@ -48,6 +93,7 @@ bool DenseRel(const Array<Type>& types, int num_inputs, const Attrs& attrs,
   ICHECK(param != nullptr);
 
   ICHECK(static_cast<int>(data->shape.size()) != 0);
+  
 
   Array<tvm::PrimExpr> dshape = data->shape;
   Array<tvm::PrimExpr> oshape = dshape;

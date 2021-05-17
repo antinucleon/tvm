@@ -727,6 +727,18 @@ def wrap_compute_dense(topi_compute, need_auto_scheduler_layout=False):
 
     return _compute_dense
 
+def wrap_compute_gemm(topi_compute):
+    """wrap dense topi compute"""
+
+    def _compute_gemm(attrs, inputs, out_type):
+        """Compute definition of dense"""
+        #out_dtype = attrs.out_dtype
+        #out_dtype = inputs[0].dtype if out_dtype == "" else out_dtype
+        args = [inputs[0], inputs[1], attrs.trans_flag]
+        return [topi_compute(*args)]
+
+    return _compute_gemm
+
 
 @override_native_generic_func("dense_strategy")
 def dense_strategy(attrs, inputs, out_type, target):
@@ -737,6 +749,21 @@ def dense_strategy(attrs, inputs, out_type, target):
         wrap_compute_dense(topi.nn.dense),
         wrap_topi_schedule(topi.generic.schedule_dense),
         name="dense.generic",
+    )
+    return strategy
+
+
+
+@override_native_generic_func("gemm_strategy")
+def gemm_strategy(attrs, inputs, out_type, target):
+    """dense generic strategy"""
+    logger.warning("gemm is not optimized for this platform.")
+    print(target)
+    strategy = _op.OpStrategy()
+    strategy.add_implementation(
+        wrap_compute_gemm(topi.nn.gemm),
+        wrap_topi_schedule(topi.generic.schedule_dense),
+        name="gemm.generic",
     )
     return strategy
 

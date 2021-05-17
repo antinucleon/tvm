@@ -78,6 +78,12 @@ reg.register_strategy("nn.dense", strategy.dense_strategy)
 reg.register_pattern("nn.dense", reg.OpPattern.OUT_ELEMWISE_FUSABLE)
 
 
+
+# gemm
+reg.register_strategy("nn.gemm", strategy.gemm_strategy)
+reg.register_pattern("nn.gemm", reg.OpPattern.OPAQUE)
+
+
 @reg.register_alter_op_layout("nn.dense")
 def alter_op_layout_dense(attrs, inputs, tinfos, out_type):
     """Alternate the layout of dense"""

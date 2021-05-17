@@ -57,6 +57,38 @@ def schedule_dense_cublas(_, outs):
     return generic.schedule_extern(outs)
 
 
+
+@autotvm.register_topi_compute("gemm_cublas.cuda")
+def gemm_cublas(cfg, data, weight, trans_flag, out_dtype=None):
+    """Dense operator on CUDA with CUBLAS"""
+    assert len(data.shape) == 2 and len(weight.shape) == 2, "only support 2-dim dense"
+    if out_dtype is None:
+        out_dtype = data.dtype
+    assert out_dtype == data.dtype, "Mixed precision not supported."
+    transa = False
+    transb = False
+    if trans_flag == "NT":
+        transb = True
+    elif trans_flag == "TN":
+        transa = True
+    elif trans_flag == "TT":
+        transa = True
+        transb = True
+    matmul = cublas.matmul(data, weight, transa, transb)
+    #if all(isinstance(d, int) for d in [batch, in_dim, out_dim]):
+    #    cfg.add_flop(batch * in_dim * out_dim * 2)
+    #if bias is not None:
+    #    matmul = te.compute(
+    #        (batch, out_dim), lambda i, j: matmul[i, j] + bias[j], tag=tag.BROADCAST
+    #    )
+    return matmul
+
+
+@autotvm.register_topi_schedule("gemm_cublas.cuda")
+def schedule_gemm_cublas(_, outs):
+    """Schedule dense operator using CUBLAS"""
+    return generic.schedule_extern(outs)
+
 @autotvm.register_topi_compute("dense_small_batch.cuda")
 def dense_small_batch(cfg, data, weight, bias=None, out_dtype=None):
     """Dense operator on CUDA"""

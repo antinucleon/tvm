@@ -718,6 +718,21 @@ def dense_strategy_cuda(attrs, inputs, out_type, target):
     return strategy
 
 
+@gemm_strategy.register(["cuda", "gpu"])
+def gemm_strategy_cuda(attrs, inputs, out_type, target):
+    """dense cuda strategy"""
+    strategy = _op.OpStrategy()
+    data, weights = inputs
+    if target.kind.name == "cuda" and "cublas" in target.libs:
+        strategy.add_implementation(
+            wrap_compute_gemm(topi.cuda.gemm_cublas),
+            wrap_topi_schedule(topi.cuda.schedule_gemm_cublas),
+            name="gemm_cublas.cuda",
+            plevel=25,
+        )
+    return strategy
+
+
 @batch_matmul_strategy.register(["cuda", "gpu"])
 def batch_matmul_strategy_cuda(attrs, inputs, out_type, target):
     """batch_matmul cuda strategy"""

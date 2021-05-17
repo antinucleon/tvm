@@ -979,6 +979,16 @@ struct DenseAttrs : public tvm::AttrsNode<DenseAttrs> {
   }
 };
 
+
+/*! \brief Attributes for dense operator */
+struct GemmAttrs : public tvm::AttrsNode<GemmAttrs> {
+  tvm::String trans_flag;
+
+  TVM_DECLARE_ATTRS(GemmAttrs, "relay.attrs.GemmAttrs") {
+    TVM_ATTR_FIELD(trans_flag);
+  }
+};
+
 /*! \brief Attributes for batch matmul operator */
 struct BatchMatmulAttrs : public tvm::AttrsNode<BatchMatmulAttrs> {
   tvm::String auto_scheduler_rewritten_layout;  // The layout after auto-scheduler's layout rewrite

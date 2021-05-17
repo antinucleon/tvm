@@ -203,6 +203,21 @@ def dense_strategy_rocm(attrs, inputs, out_type, target):
     return strategy
 
 
+@gemm_strategy.register("rocm")
+def gemm_strategy_rocm(attrs, inputs, out_type, target):
+    """Dense strategy for ROCM"""
+    assert len(inputs[0].shape) == 2 and len(inputs[1].shape) == 2, "Only support 2-dim dense"
+    strategy = _op.OpStrategy()
+    if target.kind.name == "rocm" and "rocblas" in target.libs:
+        assert out_type.dtype == inputs[0].dtype, "Mixed precision not supported."
+        strategy.add_implementation(
+            wrap_compute_dense(topi.rocm.gemm_rocblas),
+            wrap_topi_schedule(topi.rocm.schedule_gemm_rocblas),
+            name="gemm_rocblas.rocm",
+            plevel=15,
+        )
+    return strategy
+
 @batch_matmul_strategy.register("rocm")
 def batch_matmul_strategy_rocm(attrs, inputs, out_type, target):
     """Batch matmul strategy for ROCM"""

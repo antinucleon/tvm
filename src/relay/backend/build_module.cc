@@ -515,11 +515,18 @@ class RelayBuildModule : public runtime::ModuleNode {
     const runtime::PackedFunc* pf = runtime::Registry::Get("codegen.LLVMModuleCreate");
     if (!target_host.defined()) target_host = (pf != nullptr) ? Target("llvm") : Target("stackvm");
 
+
     // Update all the targets in the targets_ TargetsMap
     CheckAndUpdateHostConsistency(&targets_, &target_host);
+    // for (const auto& it : targets_) {
+    //    LOG(INFO) << it.first << "\t" <<  it.second->str();
+    // }
 
     // Relay IRModule -> IRModule optimizations.
     relay_module = Optimize(relay_module, targets_, params);
+    // for (const auto& it : targets_) {
+    //    LOG(INFO) << it.second->str();
+    // }
 
     // Get the updated function.
     auto func = Downcast<Function>(relay_module->Lookup("main"));

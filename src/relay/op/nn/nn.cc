@@ -162,6 +162,23 @@ Useful for
     .set_support_level(3)
     .add_type_rel("FIFOBuffer", FIFOBufferRel);
 
+
+TVM_REGISTER_NODE_TYPE(GemmAttrs);
+Expr MakeGemm(Expr a, Expr b, tvm::String trans_flag) {
+  auto attrs = make_object<GemmAttrs>();
+  attrs->trans_flag = trans_flag;
+  static const Op& op = Op::Get("nn.gemm");
+  return Call(op, {a, b}, Attrs(attrs), {});
+}
+TVM_REGISTER_GLOBAL("relay.op.nn._make.gemm").set_body_typed(MakeGemm);
+RELAY_REGISTER_OP("nn.gemm")
+    .set_attrs_type<GemmAttrs>()
+    .set_num_inputs(2)
+    .add_argument("a", "nD Tensor", "matrix a")
+    .add_argument("b", "2D Tensor", "matrix b")
+    .set_support_level(1)
+    .add_type_rel("Gemm", GemmRel<GemmAttrs>);
+
 // relay.nn.dense
 TVM_REGISTER_NODE_TYPE(DenseAttrs);
 

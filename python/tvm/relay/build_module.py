@@ -144,7 +144,6 @@ class BuildModule(object):
         # Turn off AutoTVM config not found warnings if auto_scheduler is enabled.
         old_autotvm_silent = autotvm.GLOBAL_SCOPE.silent
         autotvm.GLOBAL_SCOPE.silent = use_auto_scheduler
-
         self._build(mod, target, target_host, executor)
         autotvm.GLOBAL_SCOPE.silent = old_autotvm_silent
 
@@ -326,7 +325,7 @@ def build(ir_mod, target=None, target_host=None, params=None, mod_name="default"
         tophub_context = autotvm.tophub.context(list(target.values()))
     else:
         tophub_context = autotvm.utils.EmptyContext()
-
+    
     with tophub_context:
         bld_mod = BuildModule()
         executor_config, runtime_mod, params = bld_mod.build(
